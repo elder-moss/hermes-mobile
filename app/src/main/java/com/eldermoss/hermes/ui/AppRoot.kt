@@ -69,11 +69,9 @@ fun AppRoot(settings: Settings) {
     Scaffold(
         bottomBar = {
             if (configured) {
-                // Custom bar: 54dp icon row + HALF the gesture-bar inset (the pill
-                // floats over background, so the full inset is wasted dead space).
+                // Custom bar: 54dp icon row + FULL gesture-bar inset (half overlapped the pill).
                 val density = androidx.compose.ui.platform.LocalDensity.current
-                val navInset = WindowInsets.navigationBars.getBottom(density) / 2
-                val insetDp = with(density) { navInset.toDp() }
+                val insetDp = with(density) { WindowInsets.navigationBars.getBottom(density).toDp() }
                 Column(
                     Modifier
                         .fillMaxWidth()
