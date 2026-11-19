@@ -4,26 +4,107 @@ Hermes Mobile is a native Android app for talking to your own AI agent from anyw
 
 ## What It Does
 
-- **Chat anywhere** — full conversations with your Hermes agent, with live streaming responses rendered in clean Markdown.
-- **Pick up where you left off** — every session from your desktop is there, ready to resume.
+- **Chat anywhere** — full conversations with your Hermes agent, with live streaming responses rendered in clean Markdown. Tool calls show as compact one-line cards; tap to expand their output. Approvals and clarifying questions arrive as tappable cards mid-stream.
+- **Pick up where you left off** — every session from your desktop is there. Search, open, rename, delete.
+- **Skills** — browse installed skills, read their SKILL.md, enable or disable them.
+- **Schedules** — full cron manager: status, last run, recent run outputs, create, edit, pause, resume, delete.
+- **Memory (MemS)** — search, view, add, correct (supersede) and retract memories. Corrections go through the same code path the agent uses, so history, supersession and re-embedding stay consistent.
 - **Stay in command** — when the agent needs permission to run something, it asks you directly with native approval cards. When it needs information, it asks a clarifying question you can answer in a tap.
-- **See the work** — follow the files the agent touches as it works.
-
-## Why
+- **Notifications** — cron completions and failures, and long agent tasks that finish while the phone is backgrounded. Each type is individually switchable.
+- Light and dark theme; everything renders over Tailscale only — nothing is exposed to the public internet.
 
 An agent is only useful if you can reach it. Hermes Mobile closes the gap between "at my desk" and "wherever I am," so a long-running task can keep going while you are away — and you can answer your agent's questions the moment it asks.
 
+Voice input/output, Profiles, Models, Providers, Tools, Gateway, Persona, Kanban, Office and Artifacts are deliberately out of scope for v1; the architecture leaves clean seams for them (see "Adding a feature").
+
+## Requirements
+
+- A Hermes gateway (Hermes Agent 0.23.x) reachable over Tailscale. The gateway is the same API server the Hermes desktop app uses.
+- Android 8.0+ (API 26). The APK is sideloaded; no Play Services needed, which is why notifications do not use FCM.
+
+## Install
+
+1. Grab the latest APK from [Releases](https://github.com/elder-moss/hermes-mobile/releases) (sideload it: allow "install unknown apps" for your browser or file manager).
+2. First launch drops you into Settings. Fill in:
+   - **Gateway URL** — e.g. `https://asgard.tailbd5ca8.ts.net:9120` (your MagicDNS name or 100.x address + the gateway port).
+   - **Gateway username / password** — the dashboard basic-auth credentials (`dashboard.basic_auth` or `HERMES_DASHBOARD_BASIC_AUTH_*` on the server). This credential pair is the app's API key; the server has no separate static key.
+   - Tap **Test & save** — it verifies the gateway and the login, then stores both.
+3. **Memory service** section: set the MemS sidecar URL (`https://<host>:9471`) and the sidecar token (from `~/.hermes/mems-api/token` on the server).
+4. Done. The bottom bar appears once credentials are saved.
+
+Credentials are stored in EncryptedSharedPreferences backed by the Android Keystore. They are never logged or committed.
+
+## Architecture
+
+Kotlin + Jetpack Compose, single `:app` module, strict package boundaries:
+
+```
+core/net    HermesClient (HTTP + auth + one-shot 401 retry),
+            GatewaySocket (JSON-RPC over WebSocket, reconnect + backoff),
+            models      — only place that knows the wire protocol
+core/data   SessionsRepository, SkillsRepository, CronRepository, MemRepository
+core/store  SettingsRepository (DataStore settings + Keystore-encrypted credentials)
+feature/    chat | sessions | skills | schedules | memory | settings
+ui          theme (Material 3, light/dark), shared components, small markdown renderer
+notify      LinkService (foreground WS), CronPollWorker (WorkManager fallback), CronDiff
+```
+
+Wire contract and every endpoint used are documented in [docs/DESIGN.md](docs/DESIGN.md), verified against the desktop app source and the live gateway. Server changes are absorbed in `core/net` alone.
+
+Dependencies and why each earns its size: Compose/Material3 (the entire UI), OkHttp (HTTP + WebSocket in one small library), kotlinx-serialization (lenient JSON against a moving backend), datastore-preferences (settings), security-crypto (Keystore storage), WorkManager (poll fallback). No DI framework, no Room, no image loader — the server holds the state.
+
+### Server side
+
+- The gateway (`hermes gateway run`) serves both the JSON-RPC WebSocket and the REST API. On Asgard it is proxied tailnet-only via `tailscale serve` at `https://<host>:9120`. The old `hermes-serve` unit on 9119 is retired; the dashboard now occupies 9119. No reconfiguration was needed for chat/sessions/skills/schedules.
+- **MemS sidecar**: the Hermes API has no memory-record endpoints, so `server/mems_api.py` (stdlib-only) imports the actual MemS plugin and exposes its own search/list/add/correct/retract over HTTP — the same code path the agent uses, guaranteeing supersession, retraction and Ollama re-embedding (all-minilm at 127.0.0.1:11434) stay consistent. It binds to 127.0.0.1:9471, is proxied tailnet-only via `tailscale serve`, and requires a bearer token (`~/.hermes/mems-api/token`). Runs as the systemd user service `mems-api.service`. No Hermes core or MemS plugin code was modified.
+
+### Notifications
+
+FCM is useless here (sideloaded APK, tailnet-only connectivity), so:
+
+- **Link service** (Settings toggle): a foreground service keeps the gateway WebSocket alive while the app is backgrounded — instant notifications for cron state changes (60s poll + diff) and agent turns that complete in sessions you're not watching. Cost: a persistent low-priority notification and a socket; it only works on the tailnet.
+- **Fallback**: with the service off, a WorkManager job polls cron state every 15 minutes (WorkManager's floor). Battery-cheap, delayed.
+
+## Build
+
+Built entirely on the host (Fedora, no Android Studio):
+
+```bash
+sudo dnf install java-21-openjdk-devel   # or any JDK 17+
+# Android cmdline-tools: install platform-tools, platforms;android-34, build-tools;34.0.0
+export ANDROID_HOME=~/android-sdk
+./gradlew assembleDebug        # debug build
+./gradlew test                 # unit tests (client, models, backoff, cron diff, mems repo)
+./gradlew assembleRelease      # signed release (needs the keystore, below)
+```
+
+Gradle wrapper included; a single `./gradlew` command is enough. If the host default JDK is newer than the toolchain likes, set `org.gradle.java.home` in `~/.gradle/gradle.properties`.
+
+## Releases
+
+Releases carry a signed APK, a version number, a changelog and a SHA-256 checksum. Signing material lives **outside the repo** at `~/.config/android-keystore/` (`hermes-mobile.jks` + `keystore.properties`, mode 0600); `app/build.gradle.kts` picks it up automatically when present and builds unsigned otherwise. To regenerate from scratch:
+
+```bash
+keytool -genkeypair -v -keystore ~/.config/android-keystore/hermes-mobile.jks \
+  -alias hermes-mobile -keyalg RSA -keysize 4096 -validity 10950
+# then write ~/.config/android-keystore/keystore.properties with storeFile,
+# storePassword, keyAlias, keyPassword (chmod 600)
+```
+
+A new keystore means a new app identity for update purposes: uninstall the old app first, and notifications/settings reset with it.
+
+## Adding a feature
+
+1. Server calls go in `core/net` (client/socket) and a repository in `core/data` — UI never touches the wire.
+2. New tab = new package under `feature/` with a ViewModel + Screen, plus one entry in `ui/AppRoot.kt` (`tabs` list + one `composable(...)` route).
+3. Out-of-scope v1 areas (voice, models, profiles...) slot in the same way; the gateway already exposes most of their endpoints (see `apps/desktop/src/api` in the hermes-agent repo for the full surface).
+
+## Testing
+
+- 21 unit tests: auth flow and one-shot 401 retry (MockWebServer), wire-shape parsing against payloads captured live from the gateway, reconnect backoff policy, cron notification diffing, MemS repository (bearer auth, error mapping).
+- The REST and WS contracts were additionally exercised live against the running gateway during development (login, ticket, session create/interrupt, sessions/messages/skills/cron/search, sidecar search/list).
+- No device or emulator was attached at release time, so on-device behaviour (streaming UX, notifications, Keystore persistence) is verified by protocol-level tests but not hands-on yet. The host has KVM; a headless emulator run is the next verification step.
+
 ## Status
 
-In active development. This repository will carry the source code and signed releases as they land.
-
-## Roadmap
-
-Planned in priority order:
-
-1. Stop generation, message actions, richer session management, attachments
-2. Foreground service with push notifications for approvals and task completion
-3. Multi-server profiles, biometric app lock, encrypted credential storage
-4. Voice input and output, push-to-talk
-5. Live tool-call feed, cron manager, memory browser
-6. Server dashboard, home screen widget, share-sheet integrations
+v1 scope complete. Roadmap candidates: message actions + stop-refinement, attachments, richer tool-call feed, multi-server profiles, biometric lock, voice.

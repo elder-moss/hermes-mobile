@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -20,6 +23,17 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            // Signing material lives OUTSIDE the repo; see README (Releases).
+            val ksPropsFile = File(System.getProperty("user.home"), ".config/android-keystore/keystore.properties")
+            if (ksPropsFile.exists()) {
+                val ksProps = Properties().apply { load(FileInputStream(ksPropsFile)) }
+                signingConfig = signingConfigs.create("release") {
+                    storeFile = file(ksProps["storeFile"] as String)
+                    storePassword = ksProps["storePassword"] as String
+                    keyAlias = ksProps["keyAlias"] as String
+                    keyPassword = ksProps["keyPassword"] as String
+                }
+            }
         }
     }
 
