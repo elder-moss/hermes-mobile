@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -68,50 +69,58 @@ fun AppRoot(settings: Settings) {
     Scaffold(
         bottomBar = {
             if (configured) {
-                // Custom bar: icons flush at 52dp + gesture-bar inset only.
-                // The stock NavigationBar reserved ~80dp with big internal padding.
-                Row(
+                // Custom bar: 54dp icon row + HALF the gesture-bar inset (the pill
+                // floats over background, so the full inset is wasted dead space).
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val navInset = WindowInsets.navigationBars.getBottom(density) / 2
+                val insetDp = with(density) { navInset.toDp() }
+                Column(
                     Modifier
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.background)
-                        .windowInsetsPadding(WindowInsets.navigationBars)
-                        .heightIn(min = 52.dp)
-                        .padding(vertical = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically,
+                        .padding(bottom = insetDp),
                 ) {
-                    for (tab in visibleTabs) {
-                        val selected = currentRoute == tab.route
-                        Box(
-                            modifier = Modifier
-                                .size(52.dp)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                ) {
-                                    nav.navigate(tab.route) {
-                                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                painterResource(tab.drawable),
-                                contentDescription = tab.label,
-                                tint = if (selected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(26.dp),
-                            )
-                            if (selected) {
-                                Box(
-                                    Modifier
-                                        .align(Alignment.BottomCenter)
-                                        .padding(bottom = 4.dp)
-                                        .size(4.dp)
-                                        .background(MaterialTheme.colorScheme.primary, CircleShape),
+                    androidx.compose.material3.HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
+                        thickness = 0.5.dp,
+                    )
+                    Row(
+                        Modifier.fillMaxWidth().height(54.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        for (tab in visibleTabs) {
+                            val selected = currentRoute == tab.route
+                            Box(
+                                modifier = Modifier
+                                    .size(50.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                    ) {
+                                        nav.navigate(tab.route) {
+                                            popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    painterResource(tab.drawable),
+                                    contentDescription = tab.label,
+                                    tint = if (selected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(26.dp),
                                 )
+                                if (selected) {
+                                    Box(
+                                        Modifier
+                                            .align(Alignment.TopEnd)
+                                            .size(7.dp)
+                                            .background(MaterialTheme.colorScheme.primary, CircleShape),
+                                    )
+                                }
                             }
                         }
                     }
