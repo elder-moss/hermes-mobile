@@ -3,6 +3,8 @@ package com.eldermoss.hermes.notify
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import android.os.IBinder
 import com.eldermoss.hermes.ServiceLocator
 import kotlinx.coroutines.CoroutineScope
@@ -27,7 +29,11 @@ class LinkService : Service() {
     override fun onCreate() {
         super.onCreate()
         Channels.ensure(this)
-        startForeground(NOTIF_ID, Channels.link(this))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIF_ID, Channels.link(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            startForeground(NOTIF_ID, Channels.link(this))
+        }
         val connections = ServiceLocator.connections
         connections.socket.start()
 

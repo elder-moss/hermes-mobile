@@ -92,7 +92,8 @@ class GatewaySocket(private val client: HermesClient) {
     private suspend fun runLoop() {
         val backoff = Backoff()
         while (wantConnected) {
-            val opened = connectMutex.withLock { dial() }
+            // dial() takes connectMutex itself; do NOT wrap it here (non-reentrant).
+            val opened = dial()
             if (opened) {
                 backoff.reset()
                 // Wait until the socket dies, then back off and redial.

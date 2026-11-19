@@ -122,6 +122,11 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                                 } catch (e: Exception) {
                                     "unreachable: ${e.message}"
                                 }
+                                // Release the throwaway client's threads/connections.
+                                runCatching {
+                                    client.http.dispatcher.executorService.shutdown()
+                                    client.http.connectionPool.evictAll()
+                                }
                                 testing = false
                             }
                         },

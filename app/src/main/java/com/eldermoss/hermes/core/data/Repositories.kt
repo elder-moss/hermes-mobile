@@ -16,6 +16,7 @@ import com.eldermoss.hermes.core.net.SessionInfo
 import com.eldermoss.hermes.core.net.SessionPage
 import com.eldermoss.hermes.core.net.SkillContent
 import com.eldermoss.hermes.core.net.SkillInfo
+import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.json.decodeFromJsonElement
@@ -24,6 +25,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -147,22 +149,29 @@ class MemRepository(
         return json.decodeFromString(text)
     }
 
-    private fun fetch(method: String, path: String, bodyJson: String?): String {
-        val base = memsUrl().trimEnd('/')
-        val rb = Request.Builder().url("$base/api/$path").header("Authorization", "Bearer ${token()}")
-        when {
-            method == "GET" -> rb.get()
-            bodyJson != null -> rb.post(bodyJson.toRequestBody(jsonType))
-            else -> rb.post(ByteArray(0).toRequestBody(jsonType))
+    private suspend fun fetch(method: String, path: String, bodyJson: String?): String =
+        withContext(Dispatchers.IO) {
+            val base = memsUrl().trimEnd('/')
+            val rb = Request.Builder().url("$base/api/$path").header("Authorization", "Bearer ${token()}")
+            when {
+                method == "GET" -> rb.get()
+                bodyJson != null -> rb.post(bodyJson.toRequestBody(jsonType))
+                else -> rb.post(ByteArray(0).toRequestBody(jsonType))
+            }
+            try {
+                http.newCall(rb.build()).execute().use { r ->
+                    val text = r.body?.string() ?: ""
+                    if (r.code !in 200..299) throw ApiError(r.code, "MemS HTTP ${r.code}: ${text.take(140)}")
+                    text
+                }
+            } catch (e: ApiError) {
+                throw e
+            } catch (e: Exception) {
+                throw ApiError(0, e.message ?: e.javaClass.simpleName)
+            }
         }
-        http.newCall(rb.build()).execute().use { r ->
-            val text = r.body?.string() ?: ""
-            if (r.code !in 200..299) throw ApiError(r.code, "MemS HTTP ${r.code}: ${text.take(140)}")
-            return text
-        }
-    }
 
-    private inline fun <reified T> raw(method: String, path: String, bodyJson: String?): T =
+    private suspend inline fun <reified T> raw(method: String, path: String, bodyJson: String?): T =
         json.decodeFromString(fetch(method, path, bodyJson))
 }
 

@@ -42,8 +42,8 @@ object Notifier {
     }
 
     /** The agent completed a turn in a session the user is not watching. */
-    fun agentFinished(context: Context, sessionId: String, text: String) {
-        val settings = kotlinx.coroutines.runBlocking { ServiceLocator.settings.snapshot() }
+    suspend fun agentFinished(context: Context, sessionId: String, text: String) {
+        val settings = ServiceLocator.settings.snapshot()
         if (!settings.notifAgentDone) return
         if (AppForeground.isForeground()) return // user is watching; no notification
         val id = (sessionId.hashCode() and 0xFFFF) + 100
