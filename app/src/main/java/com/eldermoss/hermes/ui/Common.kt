@@ -2,6 +2,7 @@ package com.eldermoss.hermes.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,18 +20,87 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.eldermoss.hermes.core.net.SocketState
 
-/** Slim offline banner shown when the socket is down. */
+/**
+ * One slim, muted connection banner in a fixed spot (under the header).
+ * Shows why the socket is down and offers a manual Retry; auto-reconnect
+ * keeps running regardless, so no Dismiss.
+ */
 @Composable
-fun OfflineBanner(visible: Boolean, detail: String) {
-    if (!visible) return
-    Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth()) {
-        Text(
-            "Offline - $detail".trim().ifBlank { "Offline" },
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onErrorContainer,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-        )
+fun ConnectionBanner(state: SocketState, detail: String, onRetry: () -> Unit) {
+    if (state == SocketState.CONNECTED) return
+    val label = when (state) {
+        SocketState.CONNECTING -> "Connecting…"
+        SocketState.LOGIN_FAILED -> "Login failed" + (if (detail.isNotBlank()) " - $detail" else "")
+        else -> "Offline" + (if (detail.isNotBlank()) " - $detail" else " - retrying automatically")
+    }
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                maxLines = 2,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                onClick = onRetry,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+            ) { Text("Retry", style = MaterialTheme.typography.labelMedium) }
+        }
+    }
+}
+
+/** Slim in-chat error note; distinct from connection state. */
+@Composable
+fun ErrorNote(text: String, onDismiss: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                onClick = onDismiss,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+            ) { Text("OK", style = MaterialTheme.typography.labelMedium) }
+        }
+    }
+}
+
+/** Full error card for a failed screen load: what failed + Retry. */
+@Composable
+fun ErrorCard(message: String, onRetry: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.errorContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth().padding(12.dp),
+    ) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Couldn't load", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onErrorContainer)
+            Text(
+                message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+            )
+            TextButton(onClick = onRetry) { Text("Retry") }
+        }
     }
 }
 

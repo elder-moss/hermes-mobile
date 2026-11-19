@@ -39,6 +39,7 @@ import com.eldermoss.hermes.core.data.MemRepository
 import com.eldermoss.hermes.core.net.MemRecord
 import com.eldermoss.hermes.ui.ConfirmDialog
 import com.eldermoss.hermes.ui.EmptyHint
+import com.eldermoss.hermes.ui.ErrorCard
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,7 +52,6 @@ data class MemUi(
     val searching: Boolean = false,
     val loading: Boolean = true,
     val error: String? = null,
-    val detail: MemRecord? = null,
     val editor: MemEditor? = null,
     val retractTarget: MemRecord? = null,
 )
@@ -192,9 +192,11 @@ fun MemoryScreen() {
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             )
-            ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-            if (ui.loading && ui.records.isEmpty()) EmptyHint("Loading memories…")
-            if (!ui.loading && ui.records.isEmpty()) EmptyHint("No memories yet")
+            ui.error?.let { err ->
+                ErrorCard(err, onRetry = { vm.refresh() })
+            }
+            if (ui.loading && ui.records.isEmpty() && ui.error == null) EmptyHint("Loading memories…")
+            if (!ui.loading && ui.records.isEmpty() && ui.error == null) EmptyHint("No memories yet")
             LazyColumn(Modifier.weight(1f)) {
                 items(ui.records, key = { it.id }) { record ->
                     Card(

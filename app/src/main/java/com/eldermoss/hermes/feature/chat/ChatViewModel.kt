@@ -52,6 +52,7 @@ class ChatViewModel : ViewModel() {
     private var eventsJob: Job? = null
 
     init {
+        socket.start()
         observeEvents()
     }
 
@@ -126,9 +127,14 @@ class ChatViewModel : ViewModel() {
                     val created = socket.rpc("session.create")
                     val obj = created as? kotlinx.serialization.json.JsonObject
                     storedId = obj.str("stored_session_id").ifBlank { null } ?: storedId
-                    runtimeId = obj.str("session_id").ifBlank { null }
+                    val newRid = obj.str("session_id").ifBlank { null }
+                    if (newRid == null) {
+                        _ui.value = _ui.value.copy(busy = false, error = "Server returned no session id")
+                        return@launch
+                    }
+                    runtimeId = newRid
                     _ui.value = _ui.value.copy(storedId = storedId, runtimeId = runtimeId)
-                    submit(runtimeId!!, clean)
+                    submit(newRid, clean)
                 } catch (e: Exception) {
                     _ui.value = _ui.value.copy(busy = false, error = friendly(e))
                 }
@@ -308,4 +314,10 @@ class ChatViewModel : ViewModel() {
     }
 
     val socketState: StateFlow<SocketState> get() = socket.state
+    val socketDetail: StateFlow<String> get() = socket.detail
+
+    fun reconnect() {
+        socket.stop()
+        socket.start()
+    }
 }

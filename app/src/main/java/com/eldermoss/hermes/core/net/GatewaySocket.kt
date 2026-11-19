@@ -54,6 +54,10 @@ class GatewaySocket(private val client: HermesClient) {
     private val _state = MutableStateFlow(SocketState.DISCONNECTED)
     val state: StateFlow<SocketState> = _state.asStateFlow()
 
+    /** Last failure reason, for the UI banner ("why am I offline"). */
+    private val _detail = MutableStateFlow("")
+    val detail: StateFlow<String> = _detail.asStateFlow()
+
     private val _events = MutableSharedFlow<GatewayEvent>(extraBufferCapacity = 128)
     val events: SharedFlow<GatewayEvent> = _events.asSharedFlow()
 
@@ -79,6 +83,7 @@ class GatewaySocket(private val client: HermesClient) {
         wantConnected = false
         loop?.cancel()
         loop = null
+        failPending("Socket stopped")
         ws?.close(1000, "bye")
         ws = null
         _state.value = SocketState.DISCONNECTED
@@ -102,49 +107,80 @@ class GatewaySocket(private val client: HermesClient) {
 
     /** login -> ticket -> dial. Returns true when the socket opened. */
     private suspend fun dial(): Boolean {
-        if (ws != null) return true
-        _state.value = SocketState.CONNECTING
-        if (client.currentCookie() == null) {
-            val err = client.login()
-            if (err != null) {
-                _state.value = SocketState.LOGIN_FAILED
+        connectMutex.withLock {
+            if (!wantConnected) return false
+            if (ws != null) return true
+            _state.value = SocketState.CONNECTING
+
+            if (client.currentCookie() == null) {
+                val err = client.login()
+                if (err != null) {
+                    _detail.value = err
+                    _state.value = SocketState.LOGIN_FAILED
+                    return false
+                }
+            }
+            val ticket = try {
+                client.wsTicket()
+            } catch (e: ApiError) {
+                if (e.code == 401) {
+                    client.setCookie(null)
+                    val err = client.login()
+                    if (err != null) {
+                        _detail.value = err
+                        _state.value = SocketState.LOGIN_FAILED
+                        return false
+                    }
+                    try {
+                        client.wsTicket()
+                    } catch (e2: Exception) {
+                        _detail.value = "Ticket request failed: ${e2.message}"
+                        return false
+                    }
+                } else {
+                    _detail.value = "Ticket request failed (HTTP ${e.code})"
+                    return false
+                }
+            } catch (e: Exception) {
+                _detail.value = "Ticket request failed: ${e.message}"
                 return false
             }
-        }
-        val ticket = try {
-            client.wsTicket()
-        } catch (e: ApiError) {
-            if (e.code == 401) {
-                client.setCookie(null)
-                val err = client.login()
-                if (err != null) { _state.value = SocketState.LOGIN_FAILED; return false }
-                try { client.wsTicket() } catch (_: Exception) { return false }
-            } else return false
-        } catch (_: Exception) { return false }
 
-        val req = Request.Builder().url("${client.baseUrl()}/api/ws?ticket=$ticket").build()
-        val opened = CompletableDeferred<Boolean>()
-        val socket = wsHttp.newWebSocket(req, object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
-                opened.complete(true)
+            val req = Request.Builder().url("${client.baseUrl()}/api/ws?ticket=$ticket").build()
+            val opened = CompletableDeferred<Boolean>()
+            var rejectCode = 0
+            val socket = wsHttp.newWebSocket(req, object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    opened.complete(true)
+                }
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    rejectCode = response?.code ?: 0
+                    failPending("Connection dropped: ${t.message ?: t.javaClass.simpleName}")
+                    ws = null
+                    opened.complete(false)
+                }
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    failPending("Connection closed ($code)")
+                    ws = null
+                }
+                override fun onMessage(webSocket: WebSocket, text: String) = onFrame(text)
+            })
+            val ok = runCatching { withTimeout(20_000) { opened.await() } }.getOrDefault(false)
+            if (ok) {
+                // ws must be visible to rpc() before the UI sees CONNECTED.
+                ws = socket
+                _detail.value = ""
                 _state.value = SocketState.CONNECTED
+            } else {
+                socket.cancel()
+                _detail.value = when {
+                    rejectCode == 401 || rejectCode == 403 -> "Gateway rejected the socket (${rejectCode}) - ticket or login problem"
+                    rejectCode >= 400 -> "Gateway refused the socket (HTTP $rejectCode)"
+                    else -> "Could not reach the gateway socket - check Tailscale and the server URL"
+                }
             }
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                failPending("Connection dropped: ${t.message ?: t.javaClass.simpleName}")
-                ws = null
-                opened.complete(false)
-                _state.value = SocketState.DISCONNECTED
-            }
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                failPending("Connection closed ($code)")
-                ws = null
-                _state.value = SocketState.DISCONNECTED
-            }
-            override fun onMessage(webSocket: WebSocket, text: String) = onFrame(text)
-        })
-        val ok = runCatching { withTimeout(20_000) { opened.await() } }.getOrDefault(false)
-        if (ok) ws = socket else socket.cancel()
-        return ok
+            return ok
+        }
     }
 
     private fun onFrame(text: String) {

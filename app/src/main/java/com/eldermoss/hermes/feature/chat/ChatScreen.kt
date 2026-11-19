@@ -48,8 +48,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eldermoss.hermes.core.net.SocketState
+import com.eldermoss.hermes.ui.ConnectionBanner
+import com.eldermoss.hermes.ui.ErrorNote
 import com.eldermoss.hermes.ui.MarkdownText
-import com.eldermoss.hermes.ui.OfflineBanner
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,18 +58,21 @@ fun ChatScreen(initialSessionId: String? = null) {
     val vm: ChatViewModel = viewModel()
     val ui by vm.ui.collectAsState()
     val socketState by vm.socketState.collectAsState()
+    val socketDetail by vm.socketDetail.collectAsState()
     val listState = rememberLazyListState()
     var input by remember { mutableStateOf("") }
-    var started by remember { mutableStateOf(false) }
 
     LaunchedEffect(initialSessionId) {
-        if (!started) {
-            started = true
-            if (initialSessionId != null) vm.openExisting(initialSessionId) else vm.newSession()
-        }
+        if (initialSessionId != null) vm.openExisting(initialSessionId) else vm.newSession()
     }
-    LaunchedEffect(ui.items.size, ui.items.lastOrNull()) {
+    LaunchedEffect(ui.items.size) {
         if (ui.items.isNotEmpty()) listState.animateScrollToItem(ui.items.lastIndex)
+    }
+    LaunchedEffect(ui.error) {
+        if (ui.error != null) {
+            kotlinx.coroutines.delay(6000)
+            vm.clearError()
+        }
     }
 
     Scaffold(
@@ -82,11 +86,7 @@ fun ChatScreen(initialSessionId: String? = null) {
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            OfflineBanner(socketState != SocketState.CONNECTED, when (socketState) {
-                SocketState.CONNECTING -> "connecting…"
-                SocketState.LOGIN_FAILED -> "login failed (check Settings)"
-                else -> "reconnecting…"
-            })
+            ConnectionBanner(socketState, socketDetail, onRetry = { vm.reconnect() })
 
             LazyColumn(
                 state = listState,
@@ -100,16 +100,20 @@ fun ChatScreen(initialSessionId: String? = null) {
                 if (ui.busy && ui.items.lastOrNull() !is ChatItem.Text) {
                     item { Text("…", style = MaterialTheme.typography.bodyLarge) }
                 }
+                if (!ui.busy && ui.items.isEmpty()) {
+                    item {
+                        Text(
+                            "Say something to get started. The agent sees this same conversation on every device.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 48.dp),
+                        )
+                    }
+                }
             }
 
             ui.error?.let { err ->
-                Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(err, style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.weight(1f))
-                        TextButton(onClick = { vm.clearError() }) { Text("Dismiss") }
-                    }
-                }
+                ErrorNote(err, onDismiss = { vm.clearError() })
             }
 
             ui.approval?.let { ap -> ApprovalCard(ap, vm) }

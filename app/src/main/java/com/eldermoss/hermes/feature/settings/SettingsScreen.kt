@@ -57,6 +57,8 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var memsToken by remember(settings) { mutableStateOf(ServiceLocator.settings.getMemsToken()) }
     var status by remember { mutableStateOf("") }
     var testing by remember { mutableStateOf(false) }
+    var showPassword by remember { mutableStateOf(false) }
+    var showToken by remember { mutableStateOf(false) }
 
     val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -91,6 +93,13 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 OutlinedTextField(
                     value = password, onValueChange = { password = it },
                     label = { Text("Gateway password") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = if (showPassword) androidx.compose.ui.text.input.VisualTransformation.None
+                    else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    trailingIcon = {
+                        androidx.compose.material3.TextButton(onClick = { showPassword = !showPassword }) {
+                            Text(if (showPassword) "Hide" else "Show", style = MaterialTheme.typography.labelMedium)
+                        }
+                    },
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
@@ -130,6 +139,13 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 OutlinedTextField(
                     value = memsToken, onValueChange = { memsToken = it },
                     label = { Text("MemS token") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = if (showToken) androidx.compose.ui.text.input.VisualTransformation.None
+                    else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    trailingIcon = {
+                        androidx.compose.material3.TextButton(onClick = { showToken = !showToken }) {
+                            Text(if (showToken) "Hide" else "Show", style = MaterialTheme.typography.labelMedium)
+                        }
+                    },
                 )
                 TextButton(onClick = {
                     scope.launch {

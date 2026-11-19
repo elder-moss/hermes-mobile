@@ -2,6 +2,7 @@ package com.eldermoss.hermes.ui
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -47,10 +48,13 @@ fun AppRoot(settings: Settings) {
     Scaffold(
         bottomBar = {
             if (configured) {
+                // Six tabs don't fit with labels on a phone: icon-only, label on
+                // the selected tab only, single-line so nothing ever wraps.
                 NavigationBar {
                     for (tab in tabs) {
+                        val selected = currentRoute == tab.route
                         NavigationBarItem(
-                            selected = currentRoute == tab.route,
+                            selected = selected,
                             onClick = {
                                 nav.navigate(tab.route) {
                                     popUpTo(nav.graph.findStartDestination().id) { saveState = true }
@@ -59,7 +63,9 @@ fun AppRoot(settings: Settings) {
                                 }
                             },
                             icon = { Icon(painterResource(tab.drawable), contentDescription = tab.label) },
-                            label = { Text(tab.label) },
+                            label = if (selected) {
+                                { Text(tab.label, maxLines = 1, style = MaterialTheme.typography.labelSmall) }
+                            } else null,
                         )
                     }
                 }

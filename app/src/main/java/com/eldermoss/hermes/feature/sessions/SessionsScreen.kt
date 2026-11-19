@@ -37,6 +37,7 @@ import com.eldermoss.hermes.core.net.SearchHit
 import com.eldermoss.hermes.core.net.SessionInfo
 import com.eldermoss.hermes.ui.ConfirmDialog
 import com.eldermoss.hermes.ui.EmptyHint
+import com.eldermoss.hermes.ui.ErrorCard
 import com.eldermoss.hermes.ui.TextPromptDialog
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,6 +54,8 @@ data class SessionsUi(
     val searching: Boolean = false,
     val loading: Boolean = true,
     val error: String? = null,
+    val renameTarget: SessionInfo? = null,
+    val deleteTarget: SessionInfo? = null,
 )
 
 class SessionsViewModel : ViewModel() {
@@ -62,8 +65,10 @@ class SessionsViewModel : ViewModel() {
     val ui: StateFlow<SessionsUi> = _ui.asStateFlow()
 
     private val query = MutableStateFlow("")
-    var renameTarget: SessionInfo? = null
-    var deleteTarget: SessionInfo? = null
+
+    fun requestRename(row: SessionInfo) { _ui.value = _ui.value.copy(renameTarget = row) }
+    fun requestDelete(row: SessionInfo) { _ui.value = _ui.value.copy(deleteTarget = row) }
+    fun cancelDialogs() { _ui.value = _ui.value.copy(renameTarget = null, deleteTarget = null) }
 
     init {
         refresh()
@@ -130,8 +135,6 @@ fun SessionsScreen(onOpen: (String) -> Unit) {
     val vm: SessionsViewModel = viewModel()
     val ui by vm.ui.collectAsState()
     var queryText by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
-    var renameOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    var deleteOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
 
     LaunchedEffect(Unit) { vm.refresh() }
 
@@ -147,10 +150,14 @@ fun SessionsScreen(onOpen: (String) -> Unit) {
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
             )
-            ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            ui.error?.let { err -> ErrorCard(err, onRetry = { vm.refresh() }) }
             val searching = queryText.isNotBlank()
             val list: List<Any> = if (searching) ui.searchResults else ui.sessions
-            if (!ui.loading && list.isEmpty()) {
+            if (ui.loading && list.isEmpty() && ui.error == null) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.padding(24.dp),
+                )
+            } else if (!ui.loading && list.isEmpty() && ui.error == null) {
                 EmptyHint(if (searching) "No matches" else "No sessions yet")
             }
             LazyColumn(Modifier.weight(1f)) {
@@ -159,8 +166,8 @@ fun SessionsScreen(onOpen: (String) -> Unit) {
                         is SessionInfo -> SessionRow(
                             row,
                             onOpen = { onOpen(row.id) },
-                            onRename = { vm.renameTarget = row; renameOpen = true },
-                            onDelete = { vm.deleteTarget = row; deleteOpen = true },
+                            onRename = { vm.requestRename(row) },
+                            onDelete = { vm.requestDelete(row) },
                         )
                         is SearchHit -> SearchRow(row, onOpen = { onOpen(row.sessionId) })
                     }
@@ -169,22 +176,22 @@ fun SessionsScreen(onOpen: (String) -> Unit) {
         }
     }
 
-    if (renameOpen) {
-        val t = vm.renameTarget
+    if (ui.renameTarget != null) {
+        val t = ui.renameTarget
         TextPromptDialog(
             title = "Rename session",
             initial = t?.title ?: "",
-            onDismiss = { renameOpen = false },
-            onConfirm = { v -> renameOpen = false; t?.let { vm.rename(it.id, v) } },
+            onDismiss = { vm.cancelDialogs() },
+            onConfirm = { v -> vm.cancelDialogs(); t?.let { vm.rename(it.id, v) } },
         )
     }
-    if (deleteOpen) {
-        val t = vm.deleteTarget
+    if (ui.deleteTarget != null) {
+        val t = ui.deleteTarget
         ConfirmDialog(
             title = "Delete session",
             message = "Delete \"${t?.title ?: t?.id}\" permanently?",
-            onDismiss = { deleteOpen = false },
-            onConfirm = { deleteOpen = false; t?.let { vm.delete(it.id) } },
+            onDismiss = { vm.cancelDialogs() },
+            onConfirm = { vm.cancelDialogs(); t?.let { vm.delete(it.id) } },
         )
     }
 }

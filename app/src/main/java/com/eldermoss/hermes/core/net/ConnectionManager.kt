@@ -45,9 +45,9 @@ class ConnectionManager(private val settings: SettingsRepository) {
                 current = next
                 memsUrl = s.memsUrl
                 memsToken = settings.getMemsToken()
-                if (s.linkService && socket.state.value == SocketState.DISCONNECTED && creds.second.isNotBlank()) {
-                    socket.start()
-                }
+                // The chat socket is the app's lifeline: run it whenever we have
+                // credentials. linkService only controls the background foreground service.
+                if (creds.second.isNotBlank()) socket.start()
             }
         }
     }
