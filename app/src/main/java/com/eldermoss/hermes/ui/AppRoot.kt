@@ -85,6 +85,11 @@ fun AppRoot(settings: Settings) {
                 navController = nav,
                 startDestination = "chat",
                 modifier = Modifier.padding(padding),
+                // Plain crossfade: no slide/ghosting between tabs.
+                enterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) },
+                exitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90)) },
+                popEnterTransition = { androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) },
+                popExitTransition = { androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90)) },
             ) {
                 composable("chat") { ChatScreen() }
                 composable("chat/{sessionId}") { entry ->
