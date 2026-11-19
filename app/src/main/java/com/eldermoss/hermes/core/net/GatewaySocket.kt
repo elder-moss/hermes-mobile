@@ -63,7 +63,6 @@ class GatewaySocket(private val client: HermesClient) {
 
     @Volatile private var ws: WebSocket? = null
     @Volatile private var wantConnected = false
-    @Volatile private var backoffMs = 1_000L
     private val loopLock = Any()
     @Volatile private var loop: Job? = null
 
@@ -86,18 +85,18 @@ class GatewaySocket(private val client: HermesClient) {
     }
 
     private suspend fun runLoop() {
+        val backoff = Backoff()
         while (wantConnected) {
             val opened = connectMutex.withLock { dial() }
             if (opened) {
-                backoffMs = 1_000L
+                backoff.reset()
                 // Wait until the socket dies, then back off and redial.
                 while (wantConnected && ws != null) delay(500)
             } else {
                 _state.value = SocketState.DISCONNECTED
             }
             if (!wantConnected) break
-            delay(backoffMs)
-            backoffMs = (backoffMs * 2).coerceAtMost(30_000L)
+            delay(backoff.next())
         }
     }
 

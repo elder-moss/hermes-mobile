@@ -137,23 +137,23 @@ class MemRepository(
         val source: String? = null,
     )
 
-    suspend fun add(record: MemWrite): MemRecord = raw("POST", "mems/add", record)
+    suspend fun add(record: MemWrite): MemRecord = raw("POST", "mems/add", json.encodeToString(record))
     suspend fun correct(id: Long, record: MemWrite): MemRecord =
-        raw("POST", "mems/correct", record.copy(id = id))
-    suspend fun retract(id: Long): JsonObject = raw("POST", "mems/retract", RetractBody(id))
+        raw("POST", "mems/correct", json.encodeToString(record.copy(id = id)))
+    suspend fun retract(id: Long): JsonObject = raw("POST", "mems/retract", json.encodeToString(RetractBody(id)))
 
     private suspend fun listCall(path: String): List<MemRecord> {
         val text = fetch("GET", path, null)
-        return json.decodeFromJsonElement(json.parseToJsonElement(text))
+        return json.decodeFromString(text)
     }
 
-    private fun fetch(method: String, path: String, body: Any?): String {
+    private fun fetch(method: String, path: String, bodyJson: String?): String {
         val base = memsUrl().trimEnd('/')
         val rb = Request.Builder().url("$base/api/$path").header("Authorization", "Bearer ${token()}")
-        when (method) {
-            "GET" -> rb.get()
-            "DELETE" -> rb.delete()
-            else -> rb.post(json.encodeToString(body ?: JsonObject(emptyMap())).toRequestBody(jsonType))
+        when {
+            method == "GET" -> rb.get()
+            bodyJson != null -> rb.post(bodyJson.toRequestBody(jsonType))
+            else -> rb.post(ByteArray(0).toRequestBody(jsonType))
         }
         http.newCall(rb.build()).execute().use { r ->
             val text = r.body?.string() ?: ""
@@ -162,8 +162,8 @@ class MemRepository(
         }
     }
 
-    private inline fun <reified T> raw(method: String, path: String, body: Any?): T =
-        json.decodeFromString(fetch(method, path, body))
+    private inline fun <reified T> raw(method: String, path: String, bodyJson: String?): T =
+        json.decodeFromString(fetch(method, path, bodyJson))
 }
 
 fun urlEncode(raw: String): String = java.net.URLEncoder.encode(raw, "UTF-8")

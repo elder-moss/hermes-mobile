@@ -6,18 +6,13 @@ import com.eldermoss.hermes.core.net.CronJob
 
 /**
  * Notification decisions shared by the foreground service (60s poll) and the
- * WorkManager fallback (15 min poll). Diff state is process-global.
+ * WorkManager fallback (15 min poll). Diff state is process-global; the pure
+ * change detection lives in CronDiff.
  */
 object Notifier {
 
-    data class JobFingerprint(val enabled: Boolean, val lastRunAt: String?, val lastError: String?, val status: String?)
-
-    private val seen = HashMap<String, JobFingerprint>()
+    private val seen = HashMap<String, CronDiff.Fingerprint>()
     private var nextId = 2000
-
-    private fun fingerprint(job: CronJob) = JobFingerprint(
-        job.enabled, job.lastRunAt, job.lastError, job.latestExecution?.status,
-    )
 
     /** Fetch cron jobs and post notifications for state changes. */
     suspend fun diffCron(context: Context) {
@@ -27,23 +22,17 @@ object Notifier {
         } catch (_: Exception) {
             return // offline: silent, retried next tick
         }
-        synchronized(seen) {
-            for (job in jobs) {
-                val fp = fingerprint(job)
-                val old = seen[job.id]
-                seen[job.id] = fp
-                if (old == null) continue // first sighting after start: no spam
-                val ranAgain = fp.lastRunAt != null && fp.lastRunAt != old.lastRunAt
-                if (ranAgain) {
-                    val failed = !fp.lastError.isNullOrBlank()
-                    if (failed && settings.notifCronFail) {
-                        post(context, job, failure = true)
-                    } else if (!failed && settings.notifCronDone) {
-                        post(context, job, failure = false)
-                    }
+        val fired = synchronized(seen) {
+            val changes = CronDiff.changes(seen, jobs)
+            for (job in jobs) seen[job.id] = CronDiff.fingerprint(job)
+            changes.mapNotNull { (id, failed) ->
+                jobs.firstOrNull { it.id == id }?.let { job ->
+                    val wanted = if (failed) settings.notifCronFail else settings.notifCronDone
+                    if (wanted) job to failed else null
                 }
             }
         }
+        for ((job, failed) in fired) post(context, job, failure = failed)
     }
 
     private fun post(context: Context, job: CronJob, failure: Boolean) {
