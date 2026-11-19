@@ -8,7 +8,7 @@ Hermes Mobile is a native Android app for talking to your own AI agent from anyw
 - **Pick up where you left off** — every session from your desktop is there. Search, open, rename, delete.
 - **Skills** — browse installed skills, read their SKILL.md, enable or disable them.
 - **Schedules** — full cron manager: status, last run, recent run outputs, create, edit, pause, resume, delete.
-- **Memory (MemS)** — search, view, add, correct (supersede) and retract memories. Corrections go through the same code path the agent uses, so history, supersession and re-embedding stay consistent.
+- **Memory (MemS)** — optional: search, view, add, correct (supersede) and retract memories via a small sidecar on the Hermes host. Corrections go through the same code path the agent uses, so history, supersession and re-embedding stay consistent. The tab only appears when a sidecar is configured.
 - **Stay in command** — when the agent needs permission to run something, it asks you directly with native approval cards. When it needs information, it asks a clarifying question you can answer in a tap.
 - **Notifications** — cron completions and failures, and long agent tasks that finish while the phone is backgrounded. Each type is individually switchable.
 - Light and dark theme; everything renders over Tailscale only — nothing is exposed to the public internet.
@@ -19,17 +19,17 @@ Voice input/output, Profiles, Models, Providers, Tools, Gateway, Persona, Kanban
 
 ## Requirements
 
-- A Hermes gateway (Hermes Agent 0.23.x) reachable over Tailscale. The gateway is the same API server the Hermes desktop app uses.
+- A Hermes gateway (Hermes Agent 0.23.x) reachable over Tailscale. The gateway is the same API server the Hermes desktop app uses. Nothing here is specific to one machine — point it at any gateway.
 - Android 8.0+ (API 26). The APK is sideloaded; no Play Services needed, which is why notifications do not use FCM.
 
 ## Install
 
 1. Grab the latest APK from [Releases](https://github.com/elder-moss/hermes-mobile/releases) (sideload it: allow "install unknown apps" for your browser or file manager).
 2. First launch drops you into Settings. Fill in:
-   - **Gateway URL** — e.g. `https://asgard.tailbd5ca8.ts.net:9120` (your MagicDNS name or 100.x address + the gateway port).
+   - **Gateway URL** — `https://<your-host>:9120` (your gateway's Tailscale name or 100.x address + its port).
    - **Gateway username / password** — the dashboard basic-auth credentials (`dashboard.basic_auth` or `HERMES_DASHBOARD_BASIC_AUTH_*` on the server). This credential pair is the app's API key; the server has no separate static key.
    - Tap **Test & save** — it verifies the gateway and the login, then stores both.
-3. **Memory service** section: set the MemS sidecar URL (`https://<host>:9471`) and the sidecar token (from `~/.hermes/mems-api/token` on the server).
+3. Optional: the **Memory (MemS)** tab needs a small sidecar on the Hermes host (below). Without it the app works fine — the Memory tab simply doesn't appear.
 4. Done. The bottom bar appears once credentials are saved.
 
 Credentials are stored in EncryptedSharedPreferences backed by the Android Keystore. They are never logged or committed.
@@ -55,8 +55,8 @@ Dependencies and why each earns its size: Compose/Material3 (the entire UI), OkH
 
 ### Server side
 
-- The gateway (`hermes gateway run`) serves both the JSON-RPC WebSocket and the REST API. On Asgard it is proxied tailnet-only via `tailscale serve` at `https://<host>:9120`. The old `hermes-serve` unit on 9119 is retired; the dashboard now occupies 9119. No reconfiguration was needed for chat/sessions/skills/schedules.
-- **MemS sidecar**: the Hermes API has no memory-record endpoints, so `server/mems_api.py` (stdlib-only) imports the actual MemS plugin and exposes its own search/list/add/correct/retract over HTTP — the same code path the agent uses, guaranteeing supersession, retraction and Ollama re-embedding (all-minilm at 127.0.0.1:11434) stay consistent. It binds to 127.0.0.1:9471, is proxied tailnet-only via `tailscale serve`, and requires a bearer token (`~/.hermes/mems-api/token`). Runs as the systemd user service `mems-api.service`. No Hermes core or MemS plugin code was modified.
+- The gateway (`hermes gateway run`) serves both the JSON-RPC WebSocket and the REST API. Expose it tailnet-only via `tailscale serve`, e.g. `https://<your-host>:9120 -> http://127.0.0.1:9120`. That is the whole server-side requirement for chat/sessions/skills/schedules.
+- **Memory (MemS) sidecar (optional)**: the Hermes API has no memory-record endpoints, so `server/mems_api.py` (stdlib-only) imports the MemS plugin and exposes its own search/list/add/correct/retract over HTTP — the same code path the agent uses, guaranteeing supersession, retraction and Ollama re-embedding (all-minilm at 127.0.0.1:11434) stay consistent. Deploy it anywhere on your Hermes host: bind to 127.0.0.1, proxy tailnet-only via `tailscale serve`, bearer token in a 0600 file. Example deployment (systemd user unit, port 9471) is what runs on the author's server; the app hides the Memory tab until this is configured. No Hermes core or MemS plugin code is modified.
 
 ### Notifications
 

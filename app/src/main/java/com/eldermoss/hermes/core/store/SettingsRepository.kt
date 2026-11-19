@@ -25,8 +25,8 @@ data class Settings(
     val linkService: Boolean = false,
 ) {
     companion object {
-        const val DEFAULT_SERVER = "https://asgard.tailbd5ca8.ts.net:9120"
-        const val DEFAULT_MEMS = "https://asgard.tailbd5ca8.ts.net:9471"
+        const val DEFAULT_SERVER = ""
+        const val DEFAULT_MEMS = ""
     }
 }
 

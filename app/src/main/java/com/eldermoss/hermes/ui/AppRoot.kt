@@ -44,6 +44,11 @@ fun AppRoot(settings: Settings) {
     val currentRoute = backStack?.destination?.route
 
     val configured = ServiceLocator.settings.getCredentials().second.isNotBlank()
+    // Memory is an optional add-on (needs a MemS sidecar): hide the tab until
+    // both its URL and token are configured, so a stock Hermes user sees
+    // only the features their server actually offers.
+    val memsReady = settings.memsUrl.isNotBlank() && ServiceLocator.settings.getMemsToken().isNotBlank()
+    val visibleTabs = if (memsReady) tabs else tabs.filter { it.route != "memory" }
 
     Scaffold(
         bottomBar = {
@@ -51,7 +56,7 @@ fun AppRoot(settings: Settings) {
                 // Six tabs don't fit with labels on a phone: icon-only, label on
                 // the selected tab only, single-line so nothing ever wraps.
                 NavigationBar {
-                    for (tab in tabs) {
+                    for (tab in visibleTabs) {
                         val selected = currentRoute == tab.route
                         NavigationBarItem(
                             selected = selected,

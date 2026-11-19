@@ -85,6 +85,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
                 OutlinedTextField(
                     value = serverUrl, onValueChange = { serverUrl = it },
                     label = { Text("Gateway URL (tailscale)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("https://<your-host>.ts.net:9120") },
                 )
                 OutlinedTextField(
                     value = username, onValueChange = { username = it },
@@ -139,7 +140,8 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             Section("Memory service (MemS)") {
                 OutlinedTextField(
                     value = memsUrl, onValueChange = { memsUrl = it },
-                    label = { Text("MemS sidecar URL") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    label = { Text("MemS sidecar URL (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("https://<your-host>.ts.net:9471") },
                 )
                 OutlinedTextField(
                     value = memsToken, onValueChange = { memsToken = it },
