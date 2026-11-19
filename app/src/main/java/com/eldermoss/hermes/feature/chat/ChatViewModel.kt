@@ -104,7 +104,10 @@ class ChatViewModel : ViewModel() {
         _ui.value = ChatUi()
         viewModelScope.launch {
             try {
-                val result = socket.rpc("session.create")
+                val result = socket.rpc("session.create", buildJsonObject {
+                    put("request_id", java.util.UUID.randomUUID().toString())
+                    put("source", "gui")
+                })
                 val obj = result as? kotlinx.serialization.json.JsonObject
                 storedId = obj.str("stored_session_id").ifBlank { null }
                 runtimeId = obj.str("session_id").ifBlank { null }
@@ -124,7 +127,10 @@ class ChatViewModel : ViewModel() {
             _ui.value = _ui.value.copy(items = _ui.value.items + ChatItem.Text("user", clean), busy = true)
             viewModelScope.launch {
                 try {
-                    val created = socket.rpc("session.create")
+                    val created = socket.rpc("session.create", buildJsonObject {
+                        put("request_id", java.util.UUID.randomUUID().toString())
+                        put("source", "gui")
+                    })
                     val obj = created as? kotlinx.serialization.json.JsonObject
                     storedId = obj.str("stored_session_id").ifBlank { null } ?: storedId
                     val newRid = obj.str("session_id").ifBlank { null }
@@ -149,7 +155,12 @@ class ChatViewModel : ViewModel() {
         try {
             socket.rpc(
                 "prompt.submit",
-                buildJsonObject { put("session_id", rid); put("text", text) },
+                buildJsonObject {
+                    put("session_id", rid)
+                    put("text", text)
+                    // The canonical wire refuses identityless sends.
+                    put("submission_id", java.util.UUID.randomUUID().toString())
+                },
                 timeoutMs = 1_800_000,
             )
         } catch (e: Exception) {
