@@ -87,6 +87,7 @@ fun ChatScreen(initialSessionId: String? = null) {
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = { Text(ui.title, maxLines = 1, style = MaterialTheme.typography.titleMedium) },

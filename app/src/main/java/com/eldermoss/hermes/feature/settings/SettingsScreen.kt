@@ -8,6 +8,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -71,7 +75,7 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
         }
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
+    Scaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0), topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
         Column(
             Modifier
                 .then(modifier)
@@ -194,6 +198,27 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             Section("About") {
                 KeyValue("App version", BuildConfig.VERSION_NAME)
                 KeyValue("Transport", "Tailscale-only, no public exposure")
+            }
+
+            Section("Inset diagnostics") {
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val sys = WindowInsets.systemBars
+                val nav = WindowInsets.navigationBars
+                val ime = WindowInsets.ime
+                var vals by remember { mutableStateOf(intArrayOf(0, 0, 0)) }
+                LaunchedEffect(Unit) {
+                    while (true) {
+                        vals = intArrayOf(
+                            sys.getBottom(density),
+                            nav.getBottom(density),
+                            ime.getBottom(density),
+                        )
+                        kotlinx.coroutines.delay(700)
+                    }
+                }
+                KeyValue("systemBars bottom (px)", vals[0].toString())
+                KeyValue("navigationBars bottom (px)", vals[1].toString())
+                KeyValue("ime bottom (px)", vals[2].toString())
             }
         }
     }
