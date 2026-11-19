@@ -1,34 +1,25 @@
 # Hermes Mobile
 
-Native Android client for the [Hermes Agent](https://hermes-agent.nousresearch.com/docs). Chat with your agent from anywhere: streaming responses, session resume, command approvals and clarify answers in the palm of your hand.
+Hermes Mobile is a native Android app for talking to your own AI agent from anywhere. Where the Hermes desktop app lives on your computer, Hermes Mobile lives in your pocket: a fast, focused chat client built to be the remote control for the agent that runs your life.
 
-Kotlin, no Electron. Talks the same JSON-RPC-over-WebSocket wire protocol as the Hermes desktop app, against a remote gateway (HTTPS plus one-use, 30-second WebSocket tickets minted from an authenticated login).
+## What It Does
 
-## Features
+- **Chat anywhere** — full conversations with your Hermes agent, with live streaming responses rendered in clean Markdown.
+- **Pick up where you left off** — every session from your desktop is there, ready to resume.
+- **Stay in command** — when the agent needs permission to run something, it asks you directly with native approval cards. When it needs information, it asks a clarifying question you can answer in a tap.
+- **See the work** — follow the files the agent touches as it works.
 
-- **Streaming chat** — live token deltas with Markdown rendering, including code blocks and tables
-- **Sessions** — list, resume, and pick up any conversation where it left off
-- **Approvals** — native cards for command approvals, with every choice the agent offers
-- **Clarify** — native question UI with selectable choices and free text
-- **File activity** — see the files the agent touches during a run
-- **Gateway connection** — password login, ticket-based WebSocket auth, automatic reconnect
+## Why
 
-## Requirements
+An agent is only useful if you can reach it. Hermes Mobile closes the gap between "at my desk" and "wherever I am," so a long-running task can keep going while you are away — and you can answer your agent's questions the moment it asks.
 
-- Android 8.0 (API 26) or newer
-- A reachable Hermes Agent gateway
+## Status
 
-## Build
-
-```bash
-./gradlew assembleRelease
-```
-
-Toolchain: Gradle 8.9, Android SDK 34, JDK 17. Release builds are signed and published as APKs under [Releases](../../releases).
+In active development. This repository will carry the source code and signed releases as they land.
 
 ## Roadmap
 
-Planned, in priority order:
+Planned in priority order:
 
 1. Stop generation, message actions, richer session management, attachments
 2. Foreground service with push notifications for approvals and task completion
@@ -36,7 +27,3 @@ Planned, in priority order:
 4. Voice input and output, push-to-talk
 5. Live tool-call feed, cron manager, memory browser
 6. Server dashboard, home screen widget, share-sheet integrations
-
-## License
-
-All rights reserved. Private project.
