@@ -139,7 +139,11 @@ data class MemRecord(
 /** Gateway events, delivered by the WebSocket. Payload stays raw for per-type readers. */
 data class GatewayEvent(val type: String, val sessionId: String, val payload: JsonObject) {
     fun str(key: String): String = payload[key]?.let {
-        (it as? kotlinx.serialization.json.JsonPrimitive)?.content ?: it.toString()
+        when (it) {
+            is kotlinx.serialization.json.JsonNull -> ""
+            is kotlinx.serialization.json.JsonPrimitive -> it.content
+            else -> it.toString()
+        }
     } ?: ""
 }
 
