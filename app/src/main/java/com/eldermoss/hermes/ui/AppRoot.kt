@@ -59,7 +59,6 @@ fun AppRoot(settings: Settings) {
                 // the selected tab only, single-line so nothing ever wraps.
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.background,
-                    modifier = Modifier.height(68.dp),
                 ) {
                     for (tab in visibleTabs) {
                         val selected = currentRoute == tab.route
