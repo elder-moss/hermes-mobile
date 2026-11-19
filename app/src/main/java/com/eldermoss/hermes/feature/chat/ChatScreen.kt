@@ -134,17 +134,15 @@ fun ChatScreen(initialSessionId: String? = null) {
             ui.approval?.let { ap -> ApprovalCard(ap, vm) }
             ui.clarify?.let { cl -> ClarifyCard(cl, vm) }
 
-            // Some OEMs keep a phantom IME inset when the keyboard is closed, so
-            // treat the keyboard as present only when the IME inset actually
-            // exceeds the nav-bar inset — this is why the gap survived every fix.
+            // Keyboard is handled by ONE mechanism only: the manifest is
+            // adjustNothing (window never resizes), so pad by the full IME
+            // inset. Devices that also resize would double-lift otherwise.
             val density = androidx.compose.ui.platform.LocalDensity.current
-            val imeBottom = WindowInsets.ime.getBottom(density)
-            val navBottom = WindowInsets.navigationBars.getBottom(density)
-            val keyboardPad = (imeBottom - navBottom).coerceAtLeast(0)
+            val keyboardPad = with(density) { WindowInsets.ime.getBottom(density).toDp() }
             Row(
                 Modifier
                     .fillMaxWidth()
-                    .padding(bottom = with(density) { keyboardPad.toDp() })
+                    .padding(bottom = keyboardPad)
                     .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
