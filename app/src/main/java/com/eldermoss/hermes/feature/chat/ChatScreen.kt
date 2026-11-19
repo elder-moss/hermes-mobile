@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -135,12 +134,17 @@ fun ChatScreen(initialSessionId: String? = null) {
             ui.approval?.let { ap -> ApprovalCard(ap, vm) }
             ui.clarify?.let { cl -> ClarifyCard(cl, vm) }
 
+            // Some OEMs keep a phantom IME inset when the keyboard is closed, so
+            // treat the keyboard as present only when the IME inset actually
+            // exceeds the nav-bar inset — this is why the gap survived every fix.
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            val imeBottom = WindowInsets.ime.getBottom(density)
+            val navBottom = WindowInsets.navigationBars.getBottom(density)
+            val keyboardPad = (imeBottom - navBottom).coerceAtLeast(0)
             Row(
                 Modifier
                     .fillMaxWidth()
-                    // Some OEMs report the nav-bar height inside the IME inset even
-                    // with the keyboard closed — exclude it or the composer floats.
-                    .windowInsetsPadding(WindowInsets.ime.exclude(WindowInsets.navigationBars))
+                    .padding(bottom = with(density) { keyboardPad.toDp() })
                     .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
