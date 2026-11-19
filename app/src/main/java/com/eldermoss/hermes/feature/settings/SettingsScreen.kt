@@ -47,7 +47,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val settings by ServiceLocator.settings.settings.collectAsStateWithLifecycle(initialValue = Settings())
     var serverUrl by remember(settings) { mutableStateOf(settings.serverUrl) }
@@ -72,6 +72,7 @@ fun SettingsScreen() {
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
         Column(
             Modifier
+                .then(modifier)
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
@@ -171,22 +172,6 @@ fun SettingsScreen() {
                 KeyValue("App version", BuildConfig.VERSION_NAME)
                 KeyValue("Transport", "Tailscale-only, no public exposure")
             }
-        }
-    }
-}
-
-/** First-run setup shown when no credentials are stored yet. */
-@Composable
-fun SetupScreen(modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
-        Text("Hermes Mobile", style = MaterialTheme.typography.headlineMedium)
-        Text(
-            "Configure your Hermes gateway in Settings to get started.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        androidx.compose.material3.OutlinedButton(onClick = { /* bottom bar hidden until configured */ }) {
-            Text("Open Settings from the bar below")
         }
     }
 }

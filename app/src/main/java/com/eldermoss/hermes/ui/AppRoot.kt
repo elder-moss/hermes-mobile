@@ -22,7 +22,6 @@ import com.eldermoss.hermes.feature.chat.ChatScreen
 import com.eldermoss.hermes.feature.memory.MemoryScreen
 import com.eldermoss.hermes.feature.schedules.SchedulesScreen
 import com.eldermoss.hermes.feature.sessions.SessionsScreen
-import com.eldermoss.hermes.feature.settings.SetupScreen
 import com.eldermoss.hermes.feature.settings.SettingsScreen
 import com.eldermoss.hermes.feature.skills.SkillsScreen
 
@@ -68,7 +67,8 @@ fun AppRoot(settings: Settings) {
         },
     ) { padding ->
         if (!configured) {
-            SetupScreen(Modifier.padding(padding))
+            // First run: no nav bar yet, so Settings IS the whole screen.
+            SettingsScreen(Modifier.padding(padding))
         } else {
             NavHost(
                 navController = nav,
