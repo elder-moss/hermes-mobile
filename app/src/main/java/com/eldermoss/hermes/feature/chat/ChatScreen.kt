@@ -12,12 +12,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -132,7 +133,12 @@ fun ChatScreen(initialSessionId: String? = null) {
             ui.clarify?.let { cl -> ClarifyCard(cl, vm) }
 
             Row(
-                Modifier.fillMaxWidth().imePadding().padding(horizontal = 10.dp, vertical = 8.dp),
+                Modifier
+                    .fillMaxWidth()
+                    // Some OEMs report the nav-bar height inside the IME inset even
+                    // with the keyboard closed — exclude it or the composer floats.
+                    .windowInsetsPadding(WindowInsets.ime.exclude(WindowInsets.navigationBars))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
                 OutlinedTextField(
