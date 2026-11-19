@@ -1,6 +1,7 @@
 package com.eldermoss.hermes.ui
 
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -55,7 +56,10 @@ fun AppRoot(settings: Settings) {
             if (configured) {
                 // Six tabs don't fit with labels on a phone: icon-only, label on
                 // the selected tab only, single-line so nothing ever wraps.
-                NavigationBar {
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    modifier = Modifier.height(68.dp),
+                ) {
                     for (tab in visibleTabs) {
                         val selected = currentRoute == tab.route
                         NavigationBarItem(
